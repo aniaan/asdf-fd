@@ -57,7 +57,7 @@ install_fd() {
     mkdir -p "$install_path/bin"
 
     tar -xzf "$source_path" -C "$tmp_download_dir" || fail "Could not extract archive. Make sure tar is installed."
-    mv "$tmp_download_dir/fd" "$install_path/bin/" || fail "Could not move binary to install path"
+    mv "$tmp_download_dir/fd-v${version}-${architecture}-${platform}/fd" "$install_path/bin/" || fail "Could not move binary to install path"
     chmod +x "$install_path/bin/fd"
 
     rm -rf "$tmp_download_dir"
