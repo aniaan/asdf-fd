@@ -52,7 +52,7 @@ install_fd() {
   local source_path="${tmp_download_dir}/${download_filename}"
 
   (
-    echo "∗ Downloading..."
+    echo "∗ Downloading $download_url ..."
     curl --silent --location --create-dirs --output "$source_path" "$download_url" || fail "Could not download fd $version"
     mkdir -p "$install_path/bin"
 
