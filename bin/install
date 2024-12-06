@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -e
+set -o pipefail
+
+source "$(dirname "$0")/../lib/utils.sh"
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+install_fd() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-fd supports release installs only"
+  fi
+
+  local platform
+  local architecture
+
+  case "$OSTYPE" in
+    darwin*)
+      platform="apple-darwin"
+      ;;
+    linux*)
+      platform="unknown-linux-gnu"
+      ;;
+    *)
+      fail "Unsupported platform"
+      ;;
+  esac
+
+  case "$(uname -m)" in
+    x86_64|x86-64|x64|amd64)
+      architecture="x86_64"
+      ;;
+    aarch64|arm64)
+      architecture="aarch64"
+      ;;
+    *)
+      fail "Unsupported architecture"
+      ;;
+  esac
+
+  local download_filename="fd-v${version}-${architecture}-${platform}.tar.gz"
+  local download_url=$(get_release_url "$version" "$download_filename")
+  local tmp_download_dir
+  tmp_download_dir=$(mktemp -d -t fd_tmp_XXXXXX)
+  local source_path="${tmp_download_dir}/${download_filename}"
+
+  (
+    echo "∗ Downloading..."
+    curl --silent --location --create-dirs --output "$source_path" "$download_url" || fail "Could not download fd $version"
+    mkdir -p "$install_path/bin"
+
+    tar -xzf "$source_path" -C "$tmp_download_dir" || fail "Could not extract archive. Make sure tar is installed."
+    mv "$tmp_download_dir/fd" "$install_path/bin/" || fail "Could not move binary to install path"
+    chmod +x "$install_path/bin/fd"
+
+    rm -rf "$tmp_download_dir"
+
+    echo "Installation was successful!"
+  ) || (
+    rm -rf "$install_path"
+    fail "An error occurred"
+  )
+}
+
+install_fd "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"

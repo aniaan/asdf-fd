@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/../lib/utils.sh"
+
+tags_path=$(get_github_api_tags_url)
+
+response=$(curl -s "$tags_path")
+versions=$(echo "$response" | jq -r '.[].name' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -V | tr '\n' ' ' | sed 's/ $//')
+
+
+if [ -z "$versions" ]; then
+ echo "Error: No versions found or invalid response format" >&2
+ exit 1
+fi
+
+echo "$versions"
