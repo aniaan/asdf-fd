@@ -1,4 +1,8 @@
-from ..lib import Plugin
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from lib.lib import Plugin
 
 PLUGIN = Plugin(
     name="fd",
