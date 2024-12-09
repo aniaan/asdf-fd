@@ -18,4 +18,5 @@ PLUGIN = Plugin(
         "linux": "unknown-linux-gnu",
     },
     bin_path=lambda kwargs: f"{kwargs['filename'].rstrip('.tar.gz')}/fd",
+    recover_raw_version=lambda x: f"v{x}",
 )

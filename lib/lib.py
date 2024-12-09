@@ -41,6 +41,7 @@ class Plugin:
     bin_path: LibTemplate = ""
     platform_map: dict[PlatformType, str] = None
     arch_map: dict[ArchType, str] = None
+    recover_raw_version: Callable[[str], str] = lambda x: x
 
 
 def get_plugin(plugin_name: str) -> Plugin:
@@ -81,7 +82,7 @@ def list_version(plugin_name: str) -> List[str]:
 
         recent_versions = sorted_releases[:10]
 
-        versions = [release["tag_name"] for release in recent_versions]
+        versions = [release["tag_name"].lstrip("v") for release in recent_versions]
         versions = list(reversed(versions))
 
         return "\n".join(versions)
@@ -137,14 +138,14 @@ def format_template(template: LibTemplate, format_kwargs: FormatKwargs) -> str:
     return template.format(**format_kwargs)
 
 
-def install_version(plugin_name: str, version: str, install_path: str):
+def install_version(plugin_name: str, normalize_version: str, install_path: str):
     plugin = get_plugin(plugin_name)
     plat, arch = get_system_info()
 
     platform_name = plugin.platform_map[plat] if plugin.platform_map else plat
     arch_name = plugin.arch_map[arch] if plugin.arch_map else arch
 
-    normalize_version = get_normalize_version(version)
+    version = plugin.recover_raw_version(normalize_version)
 
     format_kwargs: FormatKwargs = {
         "name": plugin.name,
