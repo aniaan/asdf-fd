@@ -119,10 +119,13 @@ def get_normalize_version(version: str) -> str:
 def verify_checksum(file_path: Path, checksum_path: Path) -> bool:
     with open(checksum_path) as f:
         expected = None
-        for line in f:
+        lines = f.readlines()
+        for line in lines:
             if file_path.name in line:
                 expected = line.split()[0]
                 break
+        if not expected and len(lines) == 1:
+            expected = lines[0].split()[0]
         if not expected:
             raise Exception(f"Checksum not found for {file_path.name}")
 
