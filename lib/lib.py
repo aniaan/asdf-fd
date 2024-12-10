@@ -42,6 +42,7 @@ class Plugin:
     platform_map: dict[PlatformType, str] = None
     arch_map: dict[ArchType, str] = None
     recover_raw_version: Callable[[str], str] = lambda x: x
+    custom_copy: Callable[["Plugin", Path, Path, FormatKwargs], None] = None
 
 
 def get_plugin(plugin_name: str) -> Plugin:
@@ -211,16 +212,21 @@ def install_version(plugin_name: str, normalize_version: str, install_path: str)
         else:
             raise Exception(f"Unsupported file type: {filename}")
 
-        src = extract_path / bin_path
-        if not src.exists():
-            raise Exception(f"Binary file not found: {src}")
+        if not plugin.custom_copy:
+            print("Using default copy function...")
+            src = extract_path / bin_path
+            if not src.exists():
+                raise Exception(f"Binary file not found: {src}")
 
-        dst = Path(install_path) / "bin"
-        dst.mkdir(parents=True, exist_ok=True)
-        dst = dst / plugin.cmd
+            dst = Path(install_path) / "bin"
+            dst.mkdir(parents=True, exist_ok=True)
+            dst = dst / plugin.cmd
 
-        shutil.copy2(src, dst)
-        dst.chmod(0o755)
+            shutil.copy2(src, dst)
+            dst.chmod(0o755)
+        else:
+            print("Using custom copy function...")
+            plugin.custom_copy(plugin, extract_path, Path(install_path), format_kwargs)
 
     print("Installation completed successfully!")
 
