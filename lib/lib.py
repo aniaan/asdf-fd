@@ -1,17 +1,19 @@
+import gzip
 import json
+import os
 import platform
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, List, Literal, TypedDict, Union
+from typing import Callable, Literal, TypedDict, Union
 from urllib.error import URLError
 from urllib.request import urlopen
-import sys
-import os
 
 PlatformType = Literal["darwin", "linux"]
 ArchType = Literal["x86_64", "aarch64"]
@@ -39,10 +41,10 @@ class Plugin:
     filename_template: LibTemplate = ""
     checksum_filename_template: LibTemplate = ""
     bin_path: LibTemplate = ""
-    platform_map: dict[PlatformType, str] = None
-    arch_map: dict[ArchType, str] = None
+    platform_map: dict[PlatformType, str] | None = None
+    arch_map: dict[ArchType, str] | None = None
     recover_raw_version: Callable[[str], str] = lambda x: x
-    custom_copy: Callable[["Plugin", Path, Path, FormatKwargs], None] = None
+    custom_copy: Callable[["Plugin", Path, Path, FormatKwargs], None] | None = None
 
 
 def get_plugin(plugin_name: str) -> Plugin:
@@ -54,8 +56,8 @@ def get_plugin(plugin_name: str) -> Plugin:
     import importlib.util
 
     spec = importlib.util.spec_from_file_location("plugin_config", plugin_config_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = importlib.util.module_from_spec(spec)  # type: ignore
+    spec.loader.exec_module(module)  # type: ignore
 
     return module.PLUGIN
 
@@ -67,7 +69,7 @@ BINARY_URL = DOWNLOAD_BASE_URL + "/{filename}"
 CHECKSUM_URL = DOWNLOAD_BASE_URL + "/{checksum_filename}"
 
 
-def list_version(plugin_name: str) -> List[str]:
+def list_version(plugin_name: str) -> str:
     plugin = get_plugin(plugin_name)
     url = API_RELEASE_URL.format(repo_name=plugin.repo_name)
 
@@ -142,6 +144,22 @@ def format_template(template: LibTemplate, format_kwargs: FormatKwargs) -> str:
     return template.format(**format_kwargs)
 
 
+def extract(filename, download_path: Path, extract_path: Path, bin_path: str):
+    if filename.endswith(".tar.gz"):
+        with tarfile.open(download_path, mode="r:gz") as tar:
+            tar.extractall(extract_path, filter="data")
+    elif filename.endswith(".gz"):
+        dst = extract_path / bin_path
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        with gzip.open(download_path, "rb") as f_in:
+            dst.write_bytes(f_in.read())
+    elif filename.endswith(".zip"):
+        with zipfile.ZipFile(download_path, "r") as zip_ref:
+            zip_ref.extractall(extract_path)
+    else:
+        raise Exception(f"Unsupported file type: {filename}")
+
+
 def install_version(plugin_name: str, normalize_version: str, install_path: str):
     plugin = get_plugin(plugin_name)
     plat, arch = get_system_info()
@@ -202,18 +220,12 @@ def install_version(plugin_name: str, normalize_version: str, install_path: str)
         extract_path = tmp_path / "extract"
         extract_path.mkdir(exist_ok=True)
 
-        if filename.endswith(".tar.gz"):
-            with tarfile.open(download_path, mode="r:gz") as tar:
-                tar.extractall(extract_path, filter="data")
-        elif filename.endswith(".gz"):
-            import gzip
-
-            dst = extract_path / bin_path
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            with gzip.open(download_path, "rb") as f_in:
-                dst.write_bytes(f_in.read())
-        else:
-            raise Exception(f"Unsupported file type: {filename}")
+        extract(
+            filename=filename,
+            download_path=download_path,
+            extract_path=extract_path,
+            bin_path=bin_path,
+        )
 
         if not plugin.custom_copy:
             print("Using default copy function...")
