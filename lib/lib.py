@@ -45,6 +45,7 @@ class Plugin:
     arch_map: dict[ArchType, str] | None = None
     recover_raw_version: Callable[[str], str] = lambda x: x
     custom_copy: Callable[["Plugin", Path, Path, FormatKwargs], None] | None = None
+    is_compressed: bool = True
 
 
 def get_plugin(plugin_name: str) -> Plugin:
@@ -148,6 +149,9 @@ def extract(filename, download_path: Path, extract_path: Path, bin_path: str):
     if filename.endswith(".tar.gz"):
         with tarfile.open(download_path, mode="r:gz") as tar:
             tar.extractall(extract_path, filter="data")
+    elif filename.endswith(".tar.xz"):
+        with tarfile.open(download_path, mode="r:xz") as tar:
+            tar.extractall(extract_path, filter="data")
     elif filename.endswith(".gz"):
         dst = extract_path / bin_path
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -220,12 +224,15 @@ def install_version(plugin_name: str, normalize_version: str, install_path: str)
         extract_path = tmp_path / "extract"
         extract_path.mkdir(exist_ok=True)
 
-        extract(
-            filename=filename,
-            download_path=download_path,
-            extract_path=extract_path,
-            bin_path=bin_path,
-        )
+        if plugin.is_compressed:
+            extract(
+                filename=filename,
+                download_path=download_path,
+                extract_path=extract_path,
+                bin_path=bin_path,
+            )
+        else:
+            shutil.copy2(download_path, extract_path / bin_path)
 
         if not plugin.custom_copy:
             print("Using default copy function...")
